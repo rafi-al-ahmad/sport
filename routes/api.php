@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +33,13 @@ Route::group([
         Route::delete('user/{id}', [UserController::class, 'destroy']);
         Route::put('user/{id}', [UserController::class, 'update']);
         
+        //categories routes
+        Route::get('categories/all', [CategoryController::class, 'index']);
+        Route::post('category', [CategoryController::class, 'store']);
+        Route::get('category/{id}', [CategoryController::class, 'show']);
+        Route::put('category/{id}', [CategoryController::class, 'update']);
+        Route::delete('category/{id}/translation/{language}', [CategoryController::class, 'deleteTranslation']);
+        Route::delete('category/{id}', [CategoryController::class, 'destroy']);
     });
     
     
@@ -42,10 +50,12 @@ Route::group([
     Route::get('account/check', function() {
         return response(["status" => "completed"]);
     })->middleware('account.completed');
-        
-
+    
+    
+    
 });
 
+Route::get('categories', [CategoryController::class, 'active']);
 
 Route::post('register', [UserController::class, 'store'])->name('register');
 Route::post('login', [UserController::class, 'login'])->name('login');

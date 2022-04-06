@@ -1,0 +1,314 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Resources\UserResource;
+use App\Models\Address;
+use App\Models\User;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+
+class UserController extends Controller
+{
+
+    protected $userValidationRules = [
+        'name' => ['required', 'max:60'],
+        'surname' => ['required', 'max:60'],
+        'username' => ['required', 'unique:users', 'max:30'],
+        'email' => ['required', 'email:rfc,dns', 'unique:users', 'max:60',],
+        'phone' => ['required', 'unique:users', 'max:18'],
+    ];
+
+
+    protected function addressValidationRules()
+    {
+        return [
+            'country' => ['required', 'string', 'max:60'],
+            'state' => ['required', 'string', 'max:60'],
+            'city' => ['required', 'string', 'max:60'],
+            'street_1' => ['required', 'string', 'max:190'],
+            'street_2' => ['nullable', 'string', 'max:190'],
+            'postal_code' => ['required', 'string', 'max:60'],
+        ];
+    }
+
+    protected $providers = [
+        'google',
+        'facebook',
+    ];
+
+
+
+    public function users(Request $request)
+    {
+        return UserResource::collection(User::paginate($request->limit));
+    }
+
+
+    public function admins(Request $request)
+    {
+        return UserResource::collection(User::where('is_admin', 1)->paginate($request->limit));
+    }
+
+
+    public function store(Request $request)
+    {
+        $this->wantJson();
+
+        $data = $request->all();
+
+        if (Route::is('admin.create')) {
+            $data['isAdmin'] = true;
+        }
+
+        Validator::make($data, array_merge($this->userValidationRules, [
+            'password' => ['required', 'min:6']
+        ]))->validate();
+
+        $user = User::create([
+            'name' => $data['name'],
+            'surname' => $data['surname'],
+            'username' => $data['username'],
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+            'phone' => $data['phone'],
+            'is_admin' => isset($data['isAdmin']) ? 1 : 0,
+        ]);
+
+        event(new Registered($user));
+
+        $token = $this->createUserAccessTooken($user);
+
+        return response()->json([
+            'user' => $user,
+            'access-token' => $token
+        ]);
+    }
+
+
+
+    public function show(Request $request, $user_id = null)
+    {
+        if ($user_id) {
+            Gate::authorize('admin');
+            $user = User::findOrFail($user_id);
+        } else {
+            $user = $request->user();
+        }
+
+        return  response()->json([
+            'user' => $user
+        ]);
+    }
+
+    public function update(Request $request, $user_id = null)
+    {
+        $this->wantJson();
+
+        $data = $request->all();
+        if ($user_id) {
+            Gate::authorize('admin');
+            $user = User::findOrFail($user_id);
+        } else {
+            $user = $request->user();
+        }
+
+        Validator::make($data, array_merge($this->userValidationRules, [
+            'username' => ['required', Rule::unique('users', 'username')->ignore($user->id), 'max:30'],
+            'phone' => ['required', Rule::unique('users', 'phone')->ignore($user->id), 'max:18'],
+            'email' => ['required', 'email:rfc,dns', Rule::unique('users', 'email')->ignore($user->id), 'max:60',],
+        ]))->validate();
+
+
+        $user->name = $data['name'];
+        $user->surname = $data['surname'];
+        $user->username = $data['username'];
+        $user->email = $data['email'];
+        $user->phone = $data['phone'];
+
+        $user->save();
+
+        return response()->json([
+            'user' => $user,
+        ]);
+    }
+
+    public function updatePassword(Request $request, $user_id = null)
+    {
+        $this->wantJson();
+
+        $data = $request->all();
+        if ($user_id) {
+            Gate::authorize('admin');
+            $user = User::findOrFail($user_id);
+        } else {
+            $user = $request->user();
+        }
+
+        Validator::make($data, [
+            'password' => ['required', 'min:6', 'max:120'],
+        ])->validate();
+
+
+        $user->password = Hash::make($data['password']);
+        $user->save();
+
+        return response()->json([
+            'user' => $user,
+        ]);
+    }
+
+    public function login(Request $request)
+    {
+        $this->wantJson();
+
+        $request->validate([
+            $this->username() => 'required|string|email',
+            'password' => 'required|string',
+        ]);
+
+        if (!Auth::guard()->attempt($request->only($this->username(), 'password'))) {
+            throw ValidationException::withMessages([
+                $this->username() => [trans('auth.failed')],
+            ]);
+        }
+
+        $user = Auth::guard()->user();
+
+        $token = $this->createUserAccessTooken($user);
+
+        return response()->json([
+            'user' => $user,
+            'access-token' => $token
+        ]);
+    }
+
+    public function logout()
+    {
+        return $this->invalidateCurrentAccessToken();
+    }
+
+    public function logoutAll(Request $request)
+    {
+        return $this->invalidateAllUserAccessTokens($request->user());
+    }
+
+    public function destroy(Request $request, $user_id)
+    {
+        $user = User::findOrFail($user_id);
+        $user->delete();
+
+        return response()->json([
+            'message' => 'success'
+        ]);
+    }
+
+    public function username()
+    {
+        return 'email';
+    }
+
+    public function createUserAccessTooken(User $user)
+    {
+        return $user->createToken('auth-token')->plainTextToken;
+    }
+
+    public function invalidateAllUserAccessTokens(User $user)
+    {
+        return $user?->tokens()->delete();
+    }
+
+    public function invalidateCurrentAccessToken()
+    {
+        return request()->user('sanctum')?->currentAccessToken()->delete();
+    }
+
+
+    // Email verification 
+    /**
+     * Mark the authenticated user's email address as verified.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     */
+    public function verify(Request $request)
+    {
+        $user = User::find($request->id);
+        if (!hash_equals((string) $request->hash, sha1($user->getEmailForVerification()))) {
+            throw new AuthorizationException;
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return $request->wantsJson()
+                ? new JsonResponse([], 204)
+                : redirect($this->verifiedRedirectPath());
+        }
+
+        if ($user->markEmailAsVerified()) {
+            event(new Verified($user));
+        }
+
+        return $request->wantsJson()
+            ? new JsonResponse([], 204)
+            : redirect($this->verifiedRedirectPath())->with('verified', true);
+    }
+
+    /**
+     * Resend the email verification notification.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
+    public function resendVerification(Request $request)
+    {
+        if ($request->user()->hasVerifiedEmail()) {
+            return $request->wantsJson()
+                ? new JsonResponse([], 204)
+                : redirect($this->verifiedRedirectPath());
+        }
+        $request->user()->sendEmailVerificationNotification();
+
+        return $request->wantsJson()
+            ? new JsonResponse([], 202)
+            : back()->with('resent', true);
+    }
+
+    public function verifiedRedirectPath()
+    {
+        return env('FRONT_URL') . '/email/verify/success';
+    }
+
+
+    public function setAddress(Request $request)
+    {
+        $user = Auth::guard()->user();
+        $data = $request->all();
+
+        Validator::make($data, array_merge($this->addressValidationRules(), []))->validate();
+
+        $address = Address::updateOrCreate([
+            "user_id" => $user->id,
+        ], [
+            "country" => $request->country,
+            "state" => $request->state,
+            "city" => $request->city,
+            "street_1" => $request->street_1,
+            "street_2" => $request->street_2,
+            "postal_code" => $request->postal_code,
+        ]);
+
+        return  response()->json([
+            'address' => $address
+        ]);
+    }
+}

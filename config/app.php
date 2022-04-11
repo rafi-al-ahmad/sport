@@ -97,6 +97,17 @@ return [
 
     'fallback_locale' => 'en',
 
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Application Supported Locales
+    |--------------------------------------------------------------------------
+    |
+    | The supported locales determines the locale that can be used.
+    |
+    */
+    'supported_locales' => ['en', 'tr'],
+
     /*
     |--------------------------------------------------------------------------
     | Faker Locale
@@ -176,6 +187,7 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
+        App\Providers\TelescopeServiceProvider::class,
 
     ],
 

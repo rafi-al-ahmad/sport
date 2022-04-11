@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\KitController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -40,6 +42,26 @@ Route::group([
         Route::put('category/{id}', [CategoryController::class, 'update']);
         Route::delete('category/{id}/translation/{language}', [CategoryController::class, 'deleteTranslation']);
         Route::delete('category/{id}', [CategoryController::class, 'destroy']);
+
+        
+        //product
+        Route::post('product', [ProductController::class, 'store']);
+        Route::put('product', [ProductController::class, 'update']);
+        Route::delete('product/{id}', [ProductController::class, 'destroy']);
+        Route::get('products/all', [ProductController::class, 'index']);
+        //product usage
+        Route::post('product/usage', [ProductController::class, 'addProductUsage']);
+        Route::put('product/usage', [ProductController::class, 'updateProductUsage']);
+        Route::delete('product/usage/{id}', [ProductController::class, 'destroyProductUsage']);
+        
+        //kits
+        Route::post('kit', [KitController::class, 'store']);
+        Route::put('kit', [KitController::class, 'update']);
+        Route::delete('kit/{id}', [KitController::class, 'destroy']);
+        Route::get('kits/all', [KitController::class, 'index']);
+        
+
+    
     });
     
     
@@ -69,4 +91,12 @@ Route::get('verify/resend', [UserController::class, 'resendVerification'])->midd
 
 Route::get('logout', [UserController::class, 'logout'])->name('logout');
 Route::get('logout/all', [UserController::class, 'logoutAll'])->name('logout.all');
+
+Route::get('product/{id}', [ProductController::class, 'show']);
+Route::get('products', [ProductController::class, 'activeWithFilters']);
+
+
+Route::get('kit/{id}', [KitController::class, 'show']);
+Route::get('kits', [KitController::class, 'activeWithFilters']);
+
 

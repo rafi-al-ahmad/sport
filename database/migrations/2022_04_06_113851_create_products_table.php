@@ -24,6 +24,7 @@ return new class extends Migration
             $table->json('options');
             $table->json('languages');
             $table->boolean('status')->default(0);
+            $table->boolean('is_social_responsible')->default(0);
             $table->softDeletes();
             $table->timestamps();
         });

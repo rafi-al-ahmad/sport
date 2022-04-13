@@ -41,6 +41,7 @@ class Product extends Model implements HasMedia
         'code',
         'category_id',
         'options',
+        'is_social_responsible',
         'languages',
         'status',
     ];
@@ -245,6 +246,6 @@ class Product extends Model implements HasMedia
         return $this->hasMany(Review::class, 'product_id', 'id');
     }
 
-    
+
 
 }

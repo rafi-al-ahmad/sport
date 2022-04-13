@@ -73,7 +73,33 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        return ProductResource::collection(Product::paginate($request->limit));
+        $query = Product::query();
+        
+        if ($request->category) {
+            $query->where('category_id', $request->category);
+        }
+
+        if ($request->code) {
+            $query->where('code', 'like', $request->code . '%');
+        }
+
+        if ($request->has("status")) {
+            $query->where('status', $request->status);
+        }
+        
+        if ($request->has("social_responsible")) {
+            $query->where('is_social_responsible', $request->social_responsible);
+        }
+
+        if ($request->key) {
+            $key = $request->key;
+            $query->where(function ($query) use ($key) {
+                $query->orWhere('title', 'like', '%' . $key . '%')
+                    ->orWhere('description', 'like', '%' . $key . '%')
+                    ->orWhere('meta_desc', 'like', '%' . $key . '%');
+            });
+        }
+        return ProductResource::collection( $query->paginate($request->limit));
     }
 
 
@@ -93,6 +119,10 @@ class ProductController extends Controller
         if ($request->code) {
             $query->where('code', 'like', $request->code . '%');
         }
+        
+        if ($request->has("social_responsible")) {
+            $query->where('is_social_responsible', $request->social_responsible);
+        }
 
         if ($request->key) {
             $key = $request->key;
@@ -102,7 +132,6 @@ class ProductController extends Controller
                     ->orWhere('meta_desc', 'like', '%' . $key . '%');
             });
         }
-
 
         return ProductResource::collection($query->paginate($request->limit));
     }
@@ -131,7 +160,10 @@ class ProductController extends Controller
         $product->category_id = $data['category_id'];
         $product->languages = [$data['language']];
         $product->options = [$data['language'] => $data['options']];
-
+        if ($request->social_responsible) {
+            $product->is_social_responsible = 1;
+        }
+        
         //save product to database
         $product->save();
 
@@ -248,7 +280,9 @@ class ProductController extends Controller
         if (!in_array($data['language'], $product->languages)) {
             $product->languages = array_merge([$data['language']], $product->languages);
         }
-
+        if ($request->social_responsible) {
+            $product->is_social_responsible = 1;
+        }
         //save product to database
         $product->save();
 

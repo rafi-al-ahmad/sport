@@ -239,4 +239,12 @@ class Product extends Model implements HasMedia
     {
         return $this->belongsToMany(Kit::class, 'kit_products', 'product_id', 'kit_id');
     }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'product_id', 'id');
+    }
+
+    
+
 }
